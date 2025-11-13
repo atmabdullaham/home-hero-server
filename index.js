@@ -85,8 +85,24 @@ async function run() {
 
     //  to get all services
      app.get("/services",  async(req,res)=>{
+      const { category, search } = req.query;
+      const query = {};
+
+ 
+  // Category Filtering
+  if (category && category !== "all") {
+    query.category = category;
+  }
+
+  // Search by Name or Category
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } }, // case-insensitive
+      { category: { $regex: search, $options: "i" } },
+    ];
+  }
       const projectFields = { service_name:1, image_URL:1, price:1, description:1 }
-      const result = await servicesCollection.find().project(projectFields).toArray()
+      const result = await servicesCollection.find(query).project(projectFields).toArray()
       res.send(result)
      })
 
