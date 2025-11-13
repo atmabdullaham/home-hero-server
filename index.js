@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require("firebase-admin");
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 
 const serviceAccount = require("./firebase-admin-key.json");
@@ -55,6 +55,7 @@ async function run() {
      const servicesCollection  = database.collection('services');
      const bookingsCollection  = database.collection('bookings');
 
+    //  service related apis
      app.post("/services", verifyFirebaseToken, async(req, res)=>{
       const service = req.body;
       const result = await servicesCollection.insertOne(service)
@@ -73,9 +74,70 @@ async function run() {
       const result = await servicesCollection.find(query).toArray()
       res.send(result)
      })
+
+    //  delete one services
+     app.delete("/services/:id", verifyFirebaseToken, async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id) }
+      const result = await servicesCollection.deleteOne(query)
+      res.send(result)
+     })
+
+    //  to get all services
      app.get("/services",  async(req,res)=>{
+      const projectFields = { service_name:1, image_URL:1, price:1, description:1 }
+      const result = await servicesCollection.find().project(projectFields).toArray()
+      res.send(result)
+     })
+
     
-      const result = await servicesCollection.find().toArray()
+
+    //  to get one services
+    app.get("/service/:id",  async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result = await servicesCollection.findOne(query)
+      res.send(result)
+    })
+
+    // to update one data
+    app.patch("/service-update", verifyFirebaseToken, async(req, res)=>{
+      const id = req.query.id;
+      const document = req.body;
+      const updateDocument = {
+        $set:document
+      }
+      const filter = { _id: new ObjectId(id) };
+      const result = await servicesCollection.updateOne(filter, updateDocument);
+      res.send(result)
+    })
+
+    // booking related apis
+    app.post('/bookings', verifyFirebaseToken, async(req, res)=>{
+      const newBooking = req.body;
+      const result = await bookingsCollection.insertOne(newBooking);
+      res.send(result);
+    })
+
+    // 
+     app.get("/my-bookings", verifyFirebaseToken, async(req,res)=>{
+      const email = req.query.email;
+      const query = {};
+      if(email){
+        query.email = email;
+        if(email !== req.token_email){
+          return res.status(403).send({message: 'forbidden access'})
+        }
+      }
+      const result = await bookingsCollection.find(query).toArray()
+      res.send(result)
+     })
+
+     //  delete one bookings
+     app.delete("/bookings/:id", verifyFirebaseToken, async(req, res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id) }
+      const result = await bookingsCollection.deleteOne(query)
       res.send(result)
      })
      
