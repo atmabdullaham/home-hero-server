@@ -84,28 +84,33 @@ async function run() {
      })
 
     //  to get all services
-     app.get("/services",  async(req,res)=>{
-      const { category, search } = req.query;
-      const query = {};
+     app.get("/services", async (req, res) => {
+  const { category, search, minPrice, maxPrice } = req.query;
 
- 
-  // Category Filtering
+  const query = {};
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    query.price = {};
+    if (minPrice) query.price.$gte = parseFloat(minPrice);
+    if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+  }
+
   if (category && category !== "all") {
     query.category = category;
   }
 
-  // Search by Name or Category
   if (search) {
     query.$or = [
-      { name: { $regex: search, $options: "i" } }, // case-insensitive
+      { service_name: { $regex: search, $options: "i" } },
       { category: { $regex: search, $options: "i" } },
     ];
   }
-      const projectFields = { service_name:1, image_URL:1, price:1, description:1 }
-      const result = await servicesCollection.find(query).project(projectFields).toArray()
-      res.send(result)
-     })
 
+  const projectFields = { service_name: 1, image_URL: 1, price: 1, description: 1 };
+
+  const result = await servicesCollection.find(query).project(projectFields).toArray();
+  res.send(result);
+});
     
 
     //  to get one services
