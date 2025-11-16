@@ -133,6 +133,41 @@ async function run() {
       res.send(result)
     })
 
+    // to add review
+app.patch("/services/:serviceId/reviews", async (req, res) => {
+  const { serviceId } = req.params;
+  const { userEmail, rating, comment } = req.body;
+
+  const review = {
+    userEmail,
+    rating,
+    comment,
+    date: new Date().toISOString(), 
+  };
+
+
+    const result = await servicesCollection.updateOne(
+      { _id: new ObjectId(serviceId) },
+      {
+        $push: { reviews: review }
+      }
+    );
+
+    res.send({
+      success: true,
+      modifiedCount: result.modifiedCount,
+      message: "Review added successfully"
+    });
+
+  
+});
+app.get("/featured/services", async(req, res)=>{
+  const limitNum = 6;
+  const projectFields = { service_name: 1, image_URL: 1, price: 1, description: 1 };
+  const result = await servicesCollection.find().limit(limitNum).project(projectFields).toArray();
+  res.send(result);
+})
+
     // booking related apis
     app.post('/bookings', verifyFirebaseToken, async(req, res)=>{
       const newBooking = req.body;
