@@ -161,12 +161,42 @@ app.patch("/services/:serviceId/reviews", async (req, res) => {
 
   
 });
-app.get("/featured/services", async(req, res)=>{
+app.get("/featured/services", async (req, res) => {
   const limitNum = 6;
-  const projectFields = { service_name: 1, image_URL: 1, price: 1, description: 1 };
-  const result = await servicesCollection.find().limit(limitNum).project(projectFields).toArray();
+
+  const result = await servicesCollection
+    .aggregate([
+      {
+        $addFields: {
+          avgRating: {
+            $cond: [
+              { $gt: [{ $size: "$reviews" }, 0] },
+              { $avg: "$reviews.rating" },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $sort: { avgRating: -1 } 
+      },
+      {
+        $limit: limitNum
+      },
+      {
+        $project: {
+          service_name: 1,
+          image_URL: 1,
+          price: 1,
+          description: 1,
+          avgRating: 1
+        }
+      }
+    ])
+    .toArray();
+
   res.send(result);
-})
+});
 
     // booking related apis
     app.post('/bookings', verifyFirebaseToken, async(req, res)=>{
