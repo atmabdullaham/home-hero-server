@@ -4,7 +4,8 @@ const admin = require("firebase-admin");
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 
-const serviceAccount = require("./firebase-admin-key.json");
+const decoded = Buffer.from(process.env.FB_SERVICE_KEY, "base64").toString("utf8");
+const serviceAccount = JSON.parse(decoded);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -15,7 +16,18 @@ const app = express()
 const port = process.env.PORT || 3000;
 
 // middleware
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://home-hero-5e249.web.app",
+  "https://home-hero-5e249.firebaseapp.com"
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    
+  })
+);
 app.use(express.json())
 
 const verifyFirebaseToken = async(req, res, next)=>{
@@ -84,32 +96,34 @@ async function run() {
      })
 
     //  to get all services
-     app.get("/services", async (req, res) => {
-  const { category, search, minPrice, maxPrice } = req.query;
+    app.get("/services", async (req, res) => {
+  try {
+    const { category, search, minPrice, maxPrice } = req.query;
 
-  const query = {};
+    const query = {};
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = parseFloat(minPrice);
+      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+    }
+    if (category && category !== "all") query.category = category;
+    if (search) {
+      query.$or = [
+        { service_name: { $regex: search, $options: "i" } },
+        { category: { $regex: search, $options: "i" } },
+      ];
+    }
 
-  if (minPrice !== undefined || maxPrice !== undefined) {
-    query.price = {};
-    if (minPrice) query.price.$gte = parseFloat(minPrice);
-    if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+    const result = await servicesCollection
+      .find(query)
+      .project({ service_name: 1, image_URL: 1, price: 1, description: 1 })
+      .toArray();
+
+    return res.send(result);
+  } catch (err) {
+    console.error("ERROR in /services:", err);
+    res.status(500).send({ error: "Server error", details: err.message });
   }
-
-  if (category && category !== "all") {
-    query.category = category;
-  }
-
-  if (search) {
-    query.$or = [
-      { service_name: { $regex: search, $options: "i" } },
-      { category: { $regex: search, $options: "i" } },
-    ];
-  }
-
-  const projectFields = { service_name: 1, image_URL: 1, price: 1, description: 1 };
-
-  const result = await servicesCollection.find(query).project(projectFields).toArray();
-  res.send(result);
 });
     
 
@@ -227,15 +241,16 @@ app.get("/featured/services", async (req, res) => {
       res.send(result)
      })
      
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     
   }
+  app.listen(port, ()=>{
+    console.log(   `Server is running on port ${port}`);
+})
 }
 run().catch(console.dir);
 
 
-app.listen(port, ()=>{
-    console.log(   `Server is running on port ${port}`);
-})
+
